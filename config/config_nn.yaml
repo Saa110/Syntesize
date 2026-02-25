@@ -1,0 +1,14 @@
+model_version: "mlp_v1"
+folds:
+  n_splits: 5
+  shuffle: true
+  random_state: 42
+params:
+  hidden_layer_sizes: [128, 64]
+  activation: "relu"
+  solver: "adam"
+  alpha: 0.001
+  batch_size: 256
+  learning_rate: "adaptive"
+  max_iter: 500
+  random_state: 42

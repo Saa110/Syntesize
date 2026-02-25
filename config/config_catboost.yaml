@@ -1,0 +1,13 @@
+model_version: "cat_v1"
+folds:
+  n_splits: 5
+  shuffle: true
+  random_state: 42
+params:
+  iterations: 1500
+  learning_rate: 0.05
+  depth: 6
+  loss_function: "Logloss"
+  eval_metric: "AUC"
+  verbose: false
+  task_type: "CPU"

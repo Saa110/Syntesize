@@ -1,0 +1,62 @@
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.pyre/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+.env
+.env.*
+pip-wheel-metadata/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# ML artifacts / outputs
+artifacts/
+outputs/
+runs/
+wandb/
+mlruns/
+lightning_logs/
+checkpoints/
+*.ckpt
+catboost_info/
+
+# Data files (keep your code/config, ignore large datasets & generated submissions)
+train.csv
+test.csv
+sample_submission.csv
+submission*.csv
+*.zip
+
+# Secrets / credentials
+*.pem
+*.key
+credentials*.json
+token*.json
+

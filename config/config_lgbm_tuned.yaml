@@ -1,0 +1,13 @@
+folds:
+  n_splits: 5
+  random_state: 42
+  shuffle: true
+model_version: lgbm_tuned
+params:
+  bagging_fraction: 0.7520707033491041
+  feature_fraction: 0.7001652287633381
+  lambda_l1: 8.372251823523783
+  lambda_l2: 0.0010057901177298822
+  min_data_in_leaf: 300
+  num_leaves: 31
+  scale_pos_weight: 14.183172851045121
