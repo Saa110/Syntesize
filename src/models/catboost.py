@@ -105,6 +105,7 @@ def train_catboost_cv(
         test_pred_folds[fold] = clf.predict_proba(X_test)[:, 1]
 
         model_path = dirs["models"] / f"{model_version}_fold{fold}.pkl"
+        print(f"Saving model to {model_path}","Auc=",fold_auc)
         dump(clf, model_path)
 
     test_pred = test_pred_folds.mean(axis=0)

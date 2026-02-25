@@ -41,6 +41,7 @@ def _objective_lgbm(trial: optuna.Trial) -> float:
         "lambda_l2": trial.suggest_float("lambda_l2", 1e-3, 10.0, log=True),
         "n_estimators": 1500,
         "n_jobs": -1,
+        "verbose": -1,
     }
 
     # optional imbalance handling via scale_pos_weight
@@ -63,9 +64,11 @@ def _objective_lgbm(trial: optuna.Trial) -> float:
             y_train,
             eval_set=[(X_valid, y_valid)],
             eval_metric="auc",
+            callbacks=[lgb.early_stopping(stopping_rounds=100, verbose=False)],
         )
         preds = clf.predict_proba(X_valid)[:, 1]
         fold_scores.append(roc_auc(y_valid, preds))
+        print(f"Fold {fold + 1}: ROC AUC = {fold_scores[-1]:.4f}")
 
     return float(sum(fold_scores) / len(fold_scores))
 

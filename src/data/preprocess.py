@@ -59,11 +59,24 @@ def apply_label_encoders(df: pd.DataFrame, encoders: Dict[str, LabelEncoder]) ->
     return df
 
 
+def fix_days_last_phone_change(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Replace 0 value in DAYS_LAST_PHONE_CHANGE with NaN.
+    """
+    if "DAYS_LAST_PHONE_CHANGE" not in df.columns:
+        return df
+
+    col = "DAYS_LAST_PHONE_CHANGE"
+    df.loc[df[col] == 0, col] = np.nan
+    return df
+
+
 def basic_preprocess(df: pd.DataFrame) -> pd.DataFrame:
     """
     Apply basic, model-agnostic preprocessing steps.
     """
     df = df.copy()
     df = fix_days_employed(df)
+    df = fix_days_last_phone_change(df)
     return df
 

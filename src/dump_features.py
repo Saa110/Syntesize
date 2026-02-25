@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 from sklearn.impute import SimpleImputer
 
-from src.data.features import build_features
+from src.data.features import build_features, fit_risk_groupanizer, transform_risk_groupanizer
 from src.data.load_data import load_train_test
+from src.utils.memory import reduce_mem_usage
 
 
 def _ensure_parent_dir(path: Path) -> None:
@@ -54,6 +56,13 @@ def main() -> None:
 
     train_df, test_df = load_train_test(data_dir)
 
+    # Risk Groupanizer
+    if "TARGET" in train_df.columns:
+        cat_cols = [col for col in train_df.columns if 3 < train_df[col].nunique() < 20 and col not in ['TARGET', 'SK_ID_CURR', 'SK_ID_BUREAU', 'SK_ID_PREV', 'index']]
+        risk_mapping = fit_risk_groupanizer(train_df, cat_cols)
+        train_df = transform_risk_groupanizer(train_df, risk_mapping)
+        test_df = transform_risk_groupanizer(test_df, risk_mapping)
+
     train_features_df, feature_cols, categorical_features = build_features(train_df)
     test_features_df, _, _ = build_features(test_df)
 
@@ -69,6 +78,41 @@ def main() -> None:
     if numeric_cols:
         train_features_df[numeric_cols] = imputer.fit_transform(train_features_df[numeric_cols])
         test_features_df[numeric_cols] = imputer.transform(test_features_df[numeric_cols])
+
+    # Remove non-informative features
+    noninformative_cols = [col for col in train_features_df.columns if train_features_df[col].nunique() < 2]
+    noninformative_cols = [c for c in noninformative_cols if c != "TARGET"]
+    if noninformative_cols:
+        train_features_df.drop(columns=noninformative_cols, inplace=True)
+        test_features_df.drop(columns=noninformative_cols, inplace=True)
+        feature_cols = [c for c in feature_cols if c not in noninformative_cols]
+        categorical_features = [c for c in categorical_features if c not in noninformative_cols]
+
+    # Placeholder for removed_cols_lgbm.csv
+    # all_features = train_features_df.columns.tolist()
+    # selected_feature_df = pd.read_csv('../input/homecredit-best-subs/removed_cols_lgbm.csv')
+    # selected_features = selected_feature_df.removed_cols.tolist()
+    # remained_features = list(set(all_features) - set(selected_features))
+    # train_features_df = train_features_df[remained_features]
+    # test_features_df = test_features_df[[c for c in remained_features if c != 'TARGET']]
+    # feature_cols = [c for c in feature_cols if c in remained_features]
+    # categorical_features = [c for c in categorical_features if c in remained_features]
+
+    # Rename columns to drop special characters
+    def sanitize(x: str) -> str:
+        if x == "TARGET":
+            return x
+        return re.sub(r'[^A-Za-z0-9_]+', '_', x)
+        
+    rename_mapping = {col: sanitize(col) for col in train_features_df.columns}
+    train_features_df.rename(columns=rename_mapping, inplace=True)
+    test_features_df.rename(columns=rename_mapping, inplace=True)
+    feature_cols = [rename_mapping.get(c, c) for c in feature_cols]
+    categorical_features = [rename_mapping.get(c, c) for c in categorical_features]
+
+    # Memory reduction
+    train_features_df = reduce_mem_usage(train_features_df)
+    test_features_df = reduce_mem_usage(test_features_df)
 
     if args.preview:
         print("TRAIN features shape:", train_features_df.shape)

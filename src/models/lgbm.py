@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 import lightgbm as lgb
+from lightgbm import early_stopping
 from joblib import dump
 
 from src.validation.cv import FoldConfig, get_fold_indices, make_stratified_folds
@@ -65,17 +66,17 @@ def train_lgbm_cv(
     train_with_folds = make_stratified_folds(train_df, target_col=target_col, cfg=fold_cfg)
     fold_indices = get_fold_indices(train_with_folds, n_splits=fold_cfg.n_splits)
 
-    X = train_with_folds[features].values
-    y = train_with_folds[target_col].values
-    X_test = test_df[features].values
+    X = train_with_folds[features]
+    y = train_with_folds[target_col]
+    X_test = test_df[features]
 
     oof_pred = np.zeros(len(train_with_folds), dtype=float)
     test_pred_folds = np.zeros((fold_cfg.n_splits, len(test_df)), dtype=float)
     fold_scores: List[float] = []
 
     for fold, (train_idx, valid_idx) in enumerate(fold_indices):
-        X_train, y_train = X[train_idx], y[train_idx]
-        X_valid, y_valid = X[valid_idx], y[valid_idx]
+        X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+        X_valid, y_valid = X.iloc[valid_idx], y.iloc[valid_idx]
 
         clf = lgb.LGBMClassifier(**model_params)
 
@@ -84,6 +85,7 @@ def train_lgbm_cv(
             "y": y_train,
             "eval_set": [(X_valid, y_valid)],
             "eval_metric": "auc",
+            "callbacks": [early_stopping(stopping_rounds=100, verbose=False)],
         }
         if categorical_features:
             # LightGBM can take categorical feature indices
@@ -101,6 +103,7 @@ def train_lgbm_cv(
 
         # Save model per fold
         model_path = dirs["models"] / f"{model_version}_fold{fold}.pkl"
+        print(f"Saving model to {model_path}","Auc=",fold_auc)
         dump(clf, model_path)
 
     test_pred = test_pred_folds.mean(axis=0)
@@ -128,6 +131,32 @@ def train_lgbm_cv(
     metrics_path = dirs["metrics"] / f"run_{model_version}.json"
     with metrics_path.open("w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
+
+    # Calculate and save average feature importances
+    feature_importances = pd.DataFrame({"feature": features})
+    for fold in range(fold_cfg.n_splits):
+        # We load the saved model to extract importance since clf was overwritten
+        model_path = dirs["models"] / f"{model_version}_fold{fold}.pkl"
+        try:
+            from joblib import load
+            fold_clf = load(model_path)
+            feature_importances[f"fold_{fold}_split"] = fold_clf.booster_.feature_importance(importance_type="split")
+            feature_importances[f"fold_{fold}_gain"] = fold_clf.booster_.feature_importance(importance_type="gain")
+        except Exception as e:
+            print(f"Could not load model for fold {fold} to extract importance: {e}")
+            
+    # Calculate means
+    split_cols = [c for c in feature_importances.columns if c.endswith("_split")]
+    gain_cols = [c for c in feature_importances.columns if c.endswith("_gain")]
+    if split_cols:
+        feature_importances["mean_split"] = feature_importances[split_cols].mean(axis=1)
+    if gain_cols:
+        feature_importances["mean_gain"] = feature_importances[gain_cols].mean(axis=1)
+
+    fi_path = dirs["metrics"] / f"feature_importance_{model_version}.csv"
+    feature_importances.sort_values(by="mean_gain", ascending=False, inplace=True)
+    feature_importances.to_csv(fi_path, index=False)
+    metrics["feature_importances_path"] = str(fi_path)
 
     return oof_pred, test_pred, metrics
 

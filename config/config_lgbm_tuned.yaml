@@ -4,10 +4,10 @@ folds:
   shuffle: true
 model_version: lgbm_tuned
 params:
-  bagging_fraction: 0.7520707033491041
-  feature_fraction: 0.7001652287633381
-  lambda_l1: 8.372251823523783
-  lambda_l2: 0.0010057901177298822
-  min_data_in_leaf: 300
+  bagging_fraction: 0.7929960308943401
+  feature_fraction: 0.83908536555126
+  lambda_l1: 0.05531633341504793
+  lambda_l2: 0.04691964731997287
+  min_data_in_leaf: 231
   num_leaves: 31
-  scale_pos_weight: 14.183172851045121
+  scale_pos_weight: 12.549391067578087

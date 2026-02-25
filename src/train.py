@@ -82,17 +82,17 @@ def main() -> None:
     # Global numeric imputation (median) so all models see finite numeric values.
     # Exclude categorical/bin features from numeric imputation to keep them as integers
     # for CatBoost and other tree-based models.
-    logger.info("Imputing missing numeric values with column medians (fitted on train)...")
-    imputer = SimpleImputer(strategy="median")
-    base_numeric_cols = (
-        train_features_df[feature_cols]
-        .select_dtypes(include=["number", "bool"])
-        .columns.tolist()
-    )
-    numeric_cols = [c for c in base_numeric_cols if c not in categorical_features]
-    if numeric_cols:
-        train_features_df[numeric_cols] = imputer.fit_transform(train_features_df[numeric_cols])
-        test_features_df[numeric_cols] = imputer.transform(test_features_df[numeric_cols])
+    # logger.info("Imputing missing numeric values with column medians (fitted on train)...")
+    # imputer = SimpleImputer(strategy="median")
+    # base_numeric_cols = (
+    #     train_features_df[feature_cols]
+    #     .select_dtypes(include=["number", "bool"])
+    #     .columns.tolist()
+    # )
+    # numeric_cols = [c for c in base_numeric_cols if c not in categorical_features]
+    # if numeric_cols:
+    #     train_features_df[numeric_cols] = imputer.fit_transform(train_features_df[numeric_cols])
+    #     test_features_df[numeric_cols] = imputer.transform(test_features_df[numeric_cols])
 
     logger.info("Features ready: %d columns", len(feature_cols))
 
