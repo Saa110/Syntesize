@@ -40,7 +40,7 @@ def main() -> None:
     parser.add_argument(
         "--stacker",
         choices=["bayes", "logreg"],
-        default="bayes",
+        default="logreg",
         help="Stacking meta-model type: bayes (BayesianRidge) or logreg (LogisticRegression)",
     )
     args = parser.parse_args()

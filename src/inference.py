@@ -11,9 +11,11 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
 def main() -> None:
     preds_dir = ARTIFACTS_DIR / "predictions"
-    model_path = ARTIFACTS_DIR / "models" / "stack_ridge_v1.pkl"
+    model_path = ARTIFACTS_DIR / "models" / "stack_logreg_v1.pkl"
 
-    test_pred_paths = sorted(preds_dir.glob("pred_*_test.csv"))
+    test_pred_paths = sorted(
+        p for p in preds_dir.glob("pred_*_test.csv") if "mlp" not in p.name.lower()
+    )
 
     # Final submission in project root, matching expected format
     output_path = PROJECT_ROOT / "submission.csv"

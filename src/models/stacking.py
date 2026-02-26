@@ -35,6 +35,34 @@ def load_oof_files(oof_paths: Iterable[Path]) -> pd.DataFrame:
     return merged
 
 
+def _make_meta_features(df_preds: pd.DataFrame, base_pred_cols: List[str]) -> Tuple[np.ndarray, List[str]]:
+    X_list: List[pd.Series] = []
+    meta_feature_names: List[str] = []
+    for col in base_pred_cols:
+        p = df_preds[col].clip(1e-6, 1 - 1e-6).reset_index(drop=True)
+        X_list.append(p)
+        meta_feature_names.append(col)
+
+        # logits
+        logit = (p / (1 - p)).apply(np.log)
+        logit_name = f"{col}_logit"
+        X_list.append(logit)
+        meta_feature_names.append(logit_name)
+
+        # ranks
+        rank = p.rank(method="average") / len(p)
+        rank_name = f"{col}_rank"
+        X_list.append(rank)
+        meta_feature_names.append(rank_name)
+
+    if not X_list:
+        return np.array([]), []
+
+    X_df = pd.concat(X_list, axis=1)
+    X_df.columns = meta_feature_names
+    return X_df.values, meta_feature_names
+
+
 def train_stacking_model(
     oof_df: pd.DataFrame,
     target_col: str = "TARGET",
@@ -58,30 +86,6 @@ def train_stacking_model(
 
     base_pred_cols = [c for c in oof_df.columns if c not in {"SK_ID_CURR", target_col}]
 
-    # Build enhanced meta-features: raw preds + logits + ranks
-    X_list: List[pd.Series] = []
-    meta_feature_names: List[str] = []
-    for col in base_pred_cols:
-        p = oof_df[col].clip(1e-6, 1 - 1e-6)
-        X_list.append(p)
-        meta_feature_names.append(col)
-
-        # logits
-        logit = (p / (1 - p)).apply(np.log)
-        logit_name = f"{col}_logit"
-        X_list.append(logit)
-        meta_feature_names.append(logit_name)
-
-        # ranks
-        rank = p.rank(method="average") / len(p)
-        rank_name = f"{col}_rank"
-        X_list.append(rank)
-        meta_feature_names.append(rank_name)
-
-    X_df = pd.concat(X_list, axis=1)
-    X_df.columns = meta_feature_names
-
-    X = X_df.values
     y = oof_df[target_col].values
 
     df_with_folds = make_stratified_folds(oof_df[["SK_ID_CURR", target_col]].copy(), target_col=target_col, cfg=fold_cfg)
@@ -91,8 +95,10 @@ def train_stacking_model(
     fold_scores: List[float] = []
 
     for fold, (train_idx, valid_idx) in enumerate(fold_indices):
-        X_train, y_train = X[train_idx], y[train_idx]
-        X_valid, y_valid = X[valid_idx], y[valid_idx]
+        X_train, _ = _make_meta_features(oof_df.iloc[train_idx], base_pred_cols)
+        y_train = y[train_idx]
+        X_valid, _ = _make_meta_features(oof_df.iloc[valid_idx], base_pred_cols)
+        y_valid = y[valid_idx]
 
         if stacker_type == "logreg":
             model = LogisticRegression(max_iter=1000)
@@ -111,6 +117,7 @@ def train_stacking_model(
         fold_scores.append(score)
 
     # Fit final model on all OOF data
+    X, meta_feature_names = _make_meta_features(oof_df, base_pred_cols)
     if stacker_type == "logreg":
         final_model = LogisticRegression(max_iter=1000)
     else:
@@ -159,8 +166,17 @@ def apply_stacking_to_test(
     model = bundle["model"]
     feature_cols = bundle["features"]
 
-    X_test = merged[feature_cols].values
-    merged["TARGET"] = model.predict(X_test)
+    base_pred_cols = [c for c in merged.columns if c != "SK_ID_CURR"]
+    X_test, generated_features = _make_meta_features(merged, base_pred_cols)
+    
+    # Ensure generated features match model features
+    if generated_features != feature_cols:
+        raise ValueError(f"Generated meta-features mismatch with trained stacker model features.\nExpected: {feature_cols}\nGot: {generated_features}")
+
+    if hasattr(model, "predict_proba"):
+        merged["TARGET"] = model.predict_proba(X_test)[:, 1]
+    else:
+        merged["TARGET"] = model.predict(X_test)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     merged[["SK_ID_CURR", "TARGET"]].to_csv(output_path, index=False)
