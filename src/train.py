@@ -9,6 +9,7 @@ from sklearn.impute import SimpleImputer
 
 from src.data.features import build_features
 from src.data.load_data import load_train_test
+from src.models.autogluon_model import train_autogluon_cv
 from src.models.catboost import train_catboost_cv
 from src.models.lgbm import train_lgbm_cv
 from src.models.nn import train_mlp_cv
@@ -34,20 +35,20 @@ def main() -> None:
         "--models",
         nargs="+",
         default=["all"],
-        choices=["all", "lgbm", "xgb", "cat", "mlp", "stack"],
+        choices=["all", "lgbm", "xgb", "cat", "autogluon", "mlp", "stack"],
         help="Which components to train: all, or any of lgbm xgb cat mlp stack",
     )
     parser.add_argument(
         "--stacker",
         choices=["bayes", "logreg"],
-        default="logreg",
+        default="bayes",
         help="Stacking meta-model type: bayes (BayesianRidge) or logreg (LogisticRegression)",
     )
     args = parser.parse_args()
     selected = set(args.models)
     if "all" in selected:
         # Default to tree-based models plus stacking; MLP is opt-in only.
-        selected = {"lgbm", "xgb", "cat", "stack"}
+        selected = {"lgbm", "xgb", "cat", "autogluon", "stack"}
 
     start_time = time.time()
 
@@ -58,7 +59,7 @@ def main() -> None:
     logger.info("Selected components to train: %s", ", ".join(sorted(selected)))
 
     logger.info("Loading data...")
-    train_df, test_df = load_train_test(PROJECT_ROOT)
+    train_df, test_df = load_train_test(PROJECT_ROOT / "data" / "raw")
 
     # Class imbalance stats (for potential loss shaping)
     pos = int((train_df["TARGET"] == 1).sum())
@@ -82,17 +83,17 @@ def main() -> None:
     # Global numeric imputation (median) so all models see finite numeric values.
     # Exclude categorical/bin features from numeric imputation to keep them as integers
     # for CatBoost and other tree-based models.
-    # logger.info("Imputing missing numeric values with column medians (fitted on train)...")
-    # imputer = SimpleImputer(strategy="median")
-    # base_numeric_cols = (
-    #     train_features_df[feature_cols]
-    #     .select_dtypes(include=["number", "bool"])
-    #     .columns.tolist()
-    # )
-    # numeric_cols = [c for c in base_numeric_cols if c not in categorical_features]
-    # if numeric_cols:
-    #     train_features_df[numeric_cols] = imputer.fit_transform(train_features_df[numeric_cols])
-    #     test_features_df[numeric_cols] = imputer.transform(test_features_df[numeric_cols])
+    logger.info("Imputing missing numeric values with column medians (fitted on train)...")
+    imputer = SimpleImputer(strategy="median")
+    base_numeric_cols = (
+        train_features_df[feature_cols]
+        .select_dtypes(include=["number", "bool"])
+        .columns.tolist()
+    )
+    numeric_cols = [c for c in base_numeric_cols if c not in categorical_features]
+    if numeric_cols:
+        train_features_df[numeric_cols] = imputer.fit_transform(train_features_df[numeric_cols])
+        test_features_df[numeric_cols] = imputer.transform(test_features_df[numeric_cols])
 
     logger.info("Features ready: %d columns", len(feature_cols))
 
@@ -161,6 +162,26 @@ def main() -> None:
         logger.info(
             "CatBoost done. CV AUC=%.5f (took %.1fs)",
             cat_metrics.get("mean_auc", float("nan")),
+            time.time() - t0,
+        )
+
+    # AutoGluon
+    if "autogluon" in selected:
+        t0 = time.time()
+        logger.info("Training AutoGluon...")
+        ag_cfg = load_yaml_config(CONFIG_DIR / "config_autogluon.yaml")
+        _, _, ag_metrics = train_autogluon_cv(
+            train_features_df,
+            test_features_df,
+            features=feature_cols,
+            target_col="TARGET",
+            model_params=ag_cfg["params"],
+            model_version=ag_cfg["model_version"],
+            artifacts_dir=ARTIFACTS_DIR,
+        )
+        logger.info(
+            "AutoGluon done. Score=%.5f (took %.1fs)",
+            ag_metrics.get("mean_auc", float("nan")),
             time.time() - t0,
         )
 

@@ -5,7 +5,7 @@ import pandas as pd
 
 
 def load_train_test(
-    data_dir: Path | str = Path("."),
+    data_dir: Path | str = Path("data/raw"),
     train_filename: str = "train.csv",
     test_filename: str = "test.csv",
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:

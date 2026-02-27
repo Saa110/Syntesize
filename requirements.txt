@@ -7,3 +7,4 @@ catboost
 optuna
 pyyaml
 joblib
+autogluon

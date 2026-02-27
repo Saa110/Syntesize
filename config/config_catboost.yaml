@@ -5,11 +5,9 @@ folds:
   random_state: 42
 params:
   iterations: 1500
+  learning_rate: 0.05
+  depth: 6
   loss_function: "Logloss"
   eval_metric: "AUC"
   verbose: false
   task_type: "CPU"
-  border_count: 117
-  depth: 5
-  l2_leaf_reg: 5.37881865030335
-  learning_rate: 0.04751908019813433

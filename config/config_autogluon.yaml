@@ -1,0 +1,9 @@
+model_version: "autogluon_v1"
+params:
+  presets: "medium_quality"
+  time_limit: 300
+  num_bag_folds: 3
+  num_bag_sets: 1
+  num_stack_levels: 0
+  ag_args_fit:
+    num_cpus: 6

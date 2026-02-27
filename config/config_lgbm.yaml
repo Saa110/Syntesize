@@ -1,28 +1,15 @@
-model_version: "lgbm_tuned"
+model_version: "lgbm_v1"
 folds:
   n_splits: 5
   shuffle: true
   random_state: 42
 params:
-  n_estimators: 5000
-  learning_rate: 0.01
-  max_depth: 11
-  num_leaves: 31
-  colsample_bytree: 0.3
-  subsample: 0.5
-  subsample_freq: 1
-  max_bin: 407
-  reg_alpha: 10.0
-  reg_lambda: 10.0
-  min_child_weight: 6
-  min_child_samples: 300
+  n_estimators: 2000
+  learning_rate: 0.05
+  num_leaves: 64
+  subsample: 0.8
+  colsample_bytree: 0.8
   objective: "binary"
   metric: "auc"
   n_jobs: -1
-  verbose: -1
-  bagging_fraction: 0.7929960308943401
-  feature_fraction: 0.83908536555126
-  lambda_l1: 0.05531633341504793
-  lambda_l2: 0.04691964731997287
-  min_data_in_leaf: 231
-  scale_pos_weight: 12.549391067578087
+  scale_pos_weight: 11.0
